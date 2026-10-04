@@ -1,0 +1,54 @@
+{
+  "name": "Clasificador de mensajes con Gemini",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "clasificar",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000001",
+      "name": "Recibir mensaje",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "b2000000-0000-4000-8000-0000000000aa"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  contents: [{ parts: [{ text: 'Clasifica este mensaje de un cliente. Responde solo JSON con las claves categoria (facturacion, tecnico, ventas u otro), urgencia (alta, media o baja) y resumen (una frase corta en espanol).\\n\\nMensaje: ' + $json.body.mensaje }] }],\n  generationConfig: { responseMimeType: 'application/json', temperature: 0 }\n}) }}",
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000002",
+      "name": "Preguntar a Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 0],
+      "credentials": {
+        "httpHeaderAuth": { "id": "TGj9X9VODb74qXuL", "name": "Gemini API key" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// leo el texto que devuelve Gemini y lo parseo\nconst texto = $input.first().json.candidates?.[0]?.content?.parts?.[0]?.text;\nif (!texto) {\n  throw new Error('Gemini no devolvio texto: ' + JSON.stringify($input.first().json).slice(0, 200));\n}\nconst r = JSON.parse(texto);\nconst categorias = ['facturacion', 'tecnico', 'ventas', 'otro'];\nconst urgencias = ['alta', 'media', 'baja'];\n\n// si el modelo se sale del formato, caigo a valores seguros en vez de propagar basura\nconst categoria = categorias.includes(r.categoria) ? r.categoria : 'otro';\nconst urgencia = urgencias.includes(r.urgencia) ? r.urgencia : 'media';\n\nreturn [{ json: { categoria, urgencia, resumen: String(r.resumen ?? '').slice(0, 200), atenderHoy: urgencia === 'alta' } }];"
+      },
+      "id": "b2000000-0000-4000-8000-000000000003",
+      "name": "Validar respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 0]
+    }
+  ],
+  "connections": {
+    "Recibir mensaje": { "main": [[{ "node": "Preguntar a Gemini", "type": "main", "index": 0 }]] },
+    "Preguntar a Gemini": { "main": [[{ "node": "Validar respuesta", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
