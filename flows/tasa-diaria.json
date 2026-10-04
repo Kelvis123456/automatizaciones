@@ -86,6 +86,27 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1120, 100]
+    },
+    {
+      "parameters": {
+        "fromEmail": "kelvisguerrero03@gmail.com",
+        "toEmail": "kelvisguerrero03@gmail.com",
+        "subject": "={{ 'Tasa USD a DOP: ' + $json.tasa.toFixed(2) }}",
+        "emailFormat": "text",
+        "text": "={{ $json.texto }}",
+        "options": { "appendAttribution": false }
+      },
+      "id": "a1000000-0000-4000-8000-000000000008",
+      "name": "Enviar por correo",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1340, 100],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "smtp": { "id": "kSDnbiOKKHkclGv2", "name": "Gmail SMTP" }
+      }
     }
   ],
   "connections": {
@@ -94,7 +115,8 @@
     "Pedir tasa": { "main": [[{ "node": "Validar tasa", "type": "main", "index": 0 }]] },
     "Validar tasa": { "main": [[{ "node": "Guardar en Postgres", "type": "main", "index": 0 }]] },
     "Guardar en Postgres": { "main": [[{ "node": "Leer ultimos 30 dias", "type": "main", "index": 0 }]] },
-    "Leer ultimos 30 dias": { "main": [[{ "node": "Armar resumen", "type": "main", "index": 0 }]] }
+    "Leer ultimos 30 dias": { "main": [[{ "node": "Armar resumen", "type": "main", "index": 0 }]] },
+    "Armar resumen": { "main": [[{ "node": "Enviar por correo", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" }
 }
