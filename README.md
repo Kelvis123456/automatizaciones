@@ -27,4 +27,4 @@ Con n8n corriendo y el clasificador activo:
 node --test tests/clasificador.test.mjs
 ```
 
-Son 6 pruebas contra el webhook real (3 de clasificación, 3 de entrada inválida). Llaman a Gemini de verdad, así que no las corro en CI. La ruta del 502 todavía no la he probado.
+Son 6 pruebas contra el webhook real (3 de clasificación, 3 de entrada inválida). Llaman a Gemini de verdad, así que no las corro en CI. El 502 lo probé a mano con una key inválida: responde 502 con un mensaje claro y, al restaurar la key, las 6 pruebas vuelven a pasar.
