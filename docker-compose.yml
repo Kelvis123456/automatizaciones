@@ -1,0 +1,17 @@
+# Postgres local solo para el historial de la tasa diaria.
+# Puerto 5434 porque 5432 y 5433 ya los uso en otros proyectos.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: automatizaciones-db
+    environment:
+      POSTGRES_DB: automatizaciones
+      POSTGRES_USER: n8n
+      POSTGRES_PASSWORD: n8n-local
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+volumes:
+  dbdata:

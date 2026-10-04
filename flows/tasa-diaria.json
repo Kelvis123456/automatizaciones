@@ -32,26 +32,69 @@
       "name": "Pedir tasa",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [260, 100],
+      "position": [240, 100],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000
     },
     {
       "parameters": {
-        "jsCode": "const r = $input.first().json;\nconst tasa = r.rates?.DOP;\nif (r.result !== 'success' || typeof tasa !== 'number') {\n  throw new Error('La API no devolvio una tasa DOP valida');\n}\n\n// el static data solo se guarda cuando el flujo corre activado, no en pruebas manuales\nconst memoria = $getWorkflowStaticData('global');\nconst historial = memoria.historial ?? [];\nconst anterior = historial.length ? historial[historial.length - 1].tasa : null;\n\nconst fecha = new Date().toISOString().slice(0, 10);\nhistorial.push({ fecha, tasa });\nmemoria.historial = historial.slice(-30);\n\nconst cambio = anterior === null ? null : Number((tasa - anterior).toFixed(4));\nconst tasas = memoria.historial.map((h) => h.tasa);\nconst promedio = tasas.reduce((a, b) => a + b, 0) / tasas.length;\n\nlet texto = `Tasa USD a DOP del ${fecha}: ${tasa.toFixed(2)}.`;\nif (cambio !== null) {\n  const sentido = cambio > 0 ? 'subio' : cambio < 0 ? 'bajo' : 'se mantuvo';\n  texto += ` Respecto a la corrida anterior ${sentido}${cambio === 0 ? '' : ' ' + Math.abs(cambio).toFixed(2)}.`;\n}\nif (tasas.length > 1) {\n  texto += ` Promedio de las ultimas ${tasas.length} corridas: ${promedio.toFixed(2)}.`;\n}\n\nreturn [{ json: { fecha, tasa, anterior, cambio, promedio: Number(promedio.toFixed(4)), corridas: tasas.length, texto } }];"
+        "jsCode": "const r = $input.first().json;\nconst tasa = r.rates?.DOP;\nif (r.result !== 'success' || typeof tasa !== 'number') {\n  throw new Error('La API no devolvio una tasa DOP valida');\n}\nreturn [{ json: { fecha: new Date().toISOString().slice(0, 10), tasa } }];"
       },
       "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Validar tasa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 100]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO tasas (fecha, tasa) VALUES ($1, $2)\nON CONFLICT (fecha) DO UPDATE SET tasa = EXCLUDED.tasa;",
+        "options": { "queryReplacement": "={{ $json.fecha }},{{ $json.tasa }}" }
+      },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Guardar en Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [680, 100],
+      "credentials": {
+        "postgres": { "id": "zSYxZykRujH7rwDh", "name": "Postgres local automatizaciones" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT to_char(fecha, 'YYYY-MM-DD') AS fecha, tasa::float8 AS tasa\nFROM tasas\nORDER BY fecha DESC\nLIMIT 30;",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "Leer ultimos 30 dias",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [900, 100],
+      "credentials": {
+        "postgres": { "id": "zSYxZykRujH7rwDh", "name": "Postgres local automatizaciones" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// la primera fila es la de hoy, la segunda la ultima guardada antes\nconst filas = $input.all().map((i) => i.json);\nconst [hoy, previa] = filas;\n\nconst cambio = previa ? Number((hoy.tasa - previa.tasa).toFixed(4)) : null;\nconst promedio = filas.reduce((a, f) => a + f.tasa, 0) / filas.length;\n\nlet texto = `Tasa USD a DOP del ${hoy.fecha}: ${hoy.tasa.toFixed(2)}.`;\nif (cambio !== null) {\n  const sentido = cambio > 0 ? 'subio' : cambio < 0 ? 'bajo' : 'se mantuvo';\n  texto += ` Respecto al ${previa.fecha} ${sentido}${cambio === 0 ? '' : ' ' + Math.abs(cambio).toFixed(2)}.`;\n}\nif (filas.length > 1) {\n  texto += ` Promedio de los ultimos ${filas.length} dias guardados: ${promedio.toFixed(2)}.`;\n}\n\nreturn [{ json: { fecha: hoy.fecha, tasa: hoy.tasa, anterior: previa?.tasa ?? null, cambio, promedio: Number(promedio.toFixed(4)), dias: filas.length, texto } }];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000007",
       "name": "Armar resumen",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [520, 100]
+      "position": [1120, 100]
     }
   ],
   "connections": {
     "Ejecutar a mano": { "main": [[{ "node": "Pedir tasa", "type": "main", "index": 0 }]] },
     "Cada dia habil 8am": { "main": [[{ "node": "Pedir tasa", "type": "main", "index": 0 }]] },
-    "Pedir tasa": { "main": [[{ "node": "Armar resumen", "type": "main", "index": 0 }]] }
+    "Pedir tasa": { "main": [[{ "node": "Validar tasa", "type": "main", "index": 0 }]] },
+    "Validar tasa": { "main": [[{ "node": "Guardar en Postgres", "type": "main", "index": 0 }]] },
+    "Guardar en Postgres": { "main": [[{ "node": "Leer ultimos 30 dias", "type": "main", "index": 0 }]] },
+    "Leer ultimos 30 dias": { "main": [[{ "node": "Armar resumen", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" }
 }
