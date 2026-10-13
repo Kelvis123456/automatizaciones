@@ -2,7 +2,7 @@
 
 Flujos de n8n que voy armando para practicar automatización de procesos. Cada flujo es un JSON en `flows/` que se importa tal cual en n8n.
 
-Todavía estoy empezando. Lo que está aquí es lo que ya corrí de verdad.
+Son dos flujos que ya corrí de punta a punta. Power Automate y más casos quedan fuera por ahora; el porqué está en `docs/decisions.md`.
 
 ## Cómo correrlo
 
